@@ -1,0 +1,101 @@
+import { v4 as uuid } from 'uuid';
+
+/**
+ * Unique identifier for domain entities.
+ *
+ * Wraps a UUID (primary key for domain identity) and optionally a numeric
+ * surrogate ID (e.g., auto-increment database column).
+ *
+ * Rules:
+ *   - Identity is always compared by UUID, never by numeric surrogate
+ *   - A new UUID is generated automatically when no value is supplied
+ *   - Use `UniqueEntityID` everywhere — NEVER create custom ID value objects
+ */
+export class UniqueEntityID {
+  /** Internal storage: always has a `uuid`; `id` is the optional numeric surrogate. */
+  public readonly value: { uuid: string; id?: number };
+
+  /**
+   * @param value - Existing UUID string, `{ uuid, id? }` object, or undefined for a new ID.
+   */
+  constructor(value?: string | { uuid: string; id?: number }) {
+    if (typeof value === 'string') {
+      this.value = { uuid: value };
+    } else if (value) {
+      this.value = value;
+    } else {
+      this.value = { uuid: uuid() };
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Static factory
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Generates a new ID or wraps an existing UUID string.
+   *
+   * @example
+   * const newId = UniqueEntityID.create();
+   * const existingId = UniqueEntityID.create('550e8400-e29b-41d4-a716-446655440000');
+   */
+  static create(id?: string): UniqueEntityID {
+    return new UniqueEntityID(id);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Accessors
+  // ---------------------------------------------------------------------------
+
+  /** The UUID string (primary domain key). */
+  get id(): string {
+    return this.value.uuid;
+  }
+
+  /** The optional numeric surrogate key (e.g., database auto-increment). */
+  get numericId(): number | undefined {
+    return this.value.id;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Comparison & serialization
+  // ---------------------------------------------------------------------------
+
+  /** Two IDs are equal when their UUIDs match exactly. */
+  equals(other: UniqueEntityID): boolean {
+    return this.value.uuid === other.value.uuid;
+  }
+
+  /** Returns the UUID string. Used by `Entity.id` getter. */
+  toString(): string {
+    return this.value.uuid;
+  }
+
+  /** Alias for `toString()` — useful when mapping to primitive values. */
+  toValue(): string {
+    return this.value.uuid;
+  }
+}
+
+// =============================================================================
+// Usage examples
+// =============================================================================
+//
+// // Create a fresh ID
+// const id1 = new UniqueEntityID();
+// const id2 = UniqueEntityID.create();
+//
+// // Wrap an existing UUID (e.g., from the database)
+// const id3 = new UniqueEntityID('550e8400-e29b-41d4-a716-446655440000');
+//
+// // Wrap a UUID + numeric surrogate (common when using Prisma with autoincrement)
+// const id4 = new UniqueEntityID({ uuid: '550e8400-...', id: 42 });
+// console.log(id4.numericId); // 42
+//
+// // Equality is UUID-based
+// id3.equals(id3); // true
+// id3.equals(id1); // false (different UUIDs)
+//
+// // Entities use this internally:
+// //   this._id = new UniqueEntityID(id);
+// //   entity.id  => entity._id.toString()  => UUID string

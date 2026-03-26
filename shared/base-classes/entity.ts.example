@@ -1,0 +1,157 @@
+import { AggregateRoot } from '@nestjs/cqrs';
+import { UniqueEntityID } from '@/shared/base-classes/unique-entity-id';
+
+/**
+ * Base class for all domain entities.
+ *
+ * Extends AggregateRoot from @nestjs/cqrs so that domain events dispatched
+ * via `this.apply(event)` flow through the NestJS EventBus automatically once
+ * the entity is committed.
+ *
+ * Event lifecycle:
+ *   1. `entity.apply(new SomethingHappenedEvent(...))`  — records the event
+ *   2. `publisher.mergeObjectContext(entity)`           — wires EventBus
+ *   3. `await repo.save(entity)`                        — persists to DB
+ *   4. `entity.commit()`                                — publishes all pending events
+ *   5. `@EventsHandler(SomethingHappenedEvent)` picks them up
+ *
+ * The repository is PURE persistence — it never knows about events.
+ */
+export abstract class Entity<Props extends object = object> extends AggregateRoot {
+  /** Internal unique identifier wrapping a UUID (and optional numeric surrogate). */
+  public readonly _id: UniqueEntityID;
+
+  /** The props bag holding the entity's current state. */
+  public readonly props: Props;
+
+  /**
+   * Protected so only subclasses call it via `static create()` or `static restore()`.
+   * @param props  - Initial state for the entity
+   * @param id     - Optional existing ID (UUID string or `{ uuid, id? }` object).
+   *                 When omitted a new UUID is generated.
+   */
+  protected constructor(props: Props, id?: string | { uuid: string; id?: number }) {
+    super();
+    this.props = props;
+    this._id = new UniqueEntityID(id);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Factory methods
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Creates a NEW entity and applies a creation domain event.
+   * Use this for the "create" write path.
+   *
+   * @example
+   * static create(props: CustomerProps, id?: string): Customer {
+   *   const customer = new Customer(props, id);
+   *   customer.apply(new CustomerCreatedEvent(customer.id));
+   *   return customer;
+   * }
+   */
+  // Implemented by each concrete entity — shown here as documentation only.
+
+  /**
+   * Restores an EXISTING entity from persistence without emitting any events.
+   * Use this for the "read/reconstruct" path (e.g., Prisma mapper → entity).
+   *
+   * @example
+   * static restore(props: CustomerProps, id: string): Customer {
+   *   return new Customer(props, id);
+   * }
+   */
+  // Implemented by each concrete entity — shown here as documentation only.
+
+  // ---------------------------------------------------------------------------
+  // Identity
+  // ---------------------------------------------------------------------------
+
+  /** UUID string representation of this entity's identifier. */
+  get id(): string {
+    return this._id.toString();
+  }
+
+  /**
+   * Optional numeric surrogate key (e.g., auto-increment DB column).
+   * Undefined when the entity was created without one.
+   */
+  get numericId(): number | undefined {
+    return this._id.numericId;
+  }
+
+  // ---------------------------------------------------------------------------
+  // State helpers
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Updates `props.updatedAt` to the current timestamp.
+   * Call inside mutating methods before `this.apply(event)`.
+   */
+  protected touch(): void {
+    if ('updatedAt' in this.props) {
+      (this.props as Record<string, unknown>).updatedAt = new Date();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Serialization
+  // ---------------------------------------------------------------------------
+
+  /** Returns a plain object representation of the entity, including its id. */
+  toJSON(): Required<{ id: string } & Props> {
+    return {
+      id: this._id.toString(),
+      ...this.props,
+    } as Required<{ id: string } & Props>;
+  }
+}
+
+// =============================================================================
+// Usage example
+// =============================================================================
+//
+// import { IEvent } from '@nestjs/cqrs';
+// import { Entity } from '@/shared/base-classes/entity';
+//
+// // 1. Define a domain event (must implement IEvent)
+// export class CustomerCreatedEvent implements IEvent {
+//   constructor(public readonly customerId: string) {}
+// }
+//
+// // 2. Define entity props
+// interface CustomerProps {
+//   name: string;
+//   email: string;
+//   createdAt: Date;
+//   updatedAt: Date;
+// }
+//
+// // 3. Concrete entity
+// export class Customer extends Entity<CustomerProps> {
+//   /** Factory for NEW entities — always applies a domain event. */
+//   static create(props: Omit<CustomerProps, 'createdAt' | 'updatedAt'>, id?: string): Customer {
+//     const now = new Date();
+//     const customer = new Customer({ ...props, createdAt: now, updatedAt: now }, id);
+//     customer.apply(new CustomerCreatedEvent(customer.id));
+//     return customer;
+//   }
+//
+//   /** Factory for EXISTING entities — no events emitted. */
+//   static restore(props: CustomerProps, id: string): Customer {
+//     return new Customer(props, id);
+//   }
+//
+//   rename(name: string): void {
+//     (this.props as CustomerProps).name = name;
+//     this.touch();
+//     this.apply(new CustomerRenamedEvent(this.id, name));
+//   }
+// }
+//
+// // 4. In the use case / command handler:
+// const customer = Customer.create({ name: 'Alice', email: 'alice@example.com' });
+// publisher.mergeObjectContext(customer);
+// await customerRepository.save(customer);
+// customer.commit(); // fires CustomerCreatedEvent into EventBus

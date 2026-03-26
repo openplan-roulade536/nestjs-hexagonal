@@ -1,0 +1,110 @@
+/**
+ * Base class for all Value Objects.
+ *
+ * Value Objects are immutable, self-validating objects identified by their
+ * VALUE rather than by identity. Two VOs with the same value are equal.
+ *
+ * Rules:
+ *   - Subclasses MUST implement `validate()` — throw on invariant violation
+ *   - Never import @nestjs/* or class-validator here
+ *   - Construct via the class constructor or a static factory method
+ */
+export abstract class ValueObject<T> {
+  protected readonly _value: T;
+
+  /**
+   * @param value - The raw value to wrap. `validate()` is called immediately.
+   * @throws {Error} When the value violates the VO's invariants.
+   */
+  constructor(value: T) {
+    this._value = value;
+    this.validate();
+  }
+
+  /**
+   * Validates the wrapped value.
+   * Must throw a descriptive error (typically `InvalidArgumentError`) when
+   * the value is invalid — NEVER silently accept bad data.
+   */
+  protected abstract validate(): void;
+
+  /** Returns the wrapped value. */
+  get value(): T {
+    return this._value;
+  }
+
+  /**
+   * Structural equality: two VOs are equal when they have the same constructor
+   * AND their values serialise to the same JSON string.
+   */
+  equals(vo?: ValueObject<T>): boolean {
+    if (vo === null || vo === undefined) {
+      return false;
+    }
+    if (vo.constructor !== this.constructor) {
+      return false;
+    }
+    return JSON.stringify(vo.value) === JSON.stringify(this.value);
+  }
+
+  toString(): string {
+    return String(this._value);
+  }
+
+  /** Serializes for JSON.stringify and API responses. */
+  toJSON(): T {
+    return this._value;
+  }
+}
+
+// =============================================================================
+// Usage examples
+// =============================================================================
+//
+// import { InvalidArgumentError } from '@/shared/domain-errors/errors';
+// import { ValueObject } from '@/shared/base-classes/value-object';
+//
+// // --- Simple string VO ---
+// export class Email extends ValueObject<string> {
+//   protected validate(): void {
+//     const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+//     if (!EMAIL_REGEX.test(this._value)) {
+//       throw new InvalidArgumentError(`Invalid email address: "${this._value}"`);
+//     }
+//   }
+//
+//   static create(value: string): Email {
+//     return new Email(value.toLowerCase().trim());
+//   }
+// }
+//
+// // --- Object-valued VO ---
+// interface MoneyProps { amount: number; currency: string }
+//
+// export class Money extends ValueObject<MoneyProps> {
+//   protected validate(): void {
+//     if (this._value.amount < 0) {
+//       throw new InvalidArgumentError('Money amount cannot be negative');
+//     }
+//     if (!this._value.currency || this._value.currency.length !== 3) {
+//       throw new InvalidArgumentError('Currency must be a 3-letter ISO code');
+//     }
+//   }
+//
+//   static create(amount: number, currency: string): Money {
+//     return new Money({ amount, currency: currency.toUpperCase() });
+//   }
+//
+//   add(other: Money): Money {
+//     if (!this.equals(other) && this._value.currency !== other.value.currency) {
+//       throw new InvalidArgumentError('Cannot add money of different currencies');
+//     }
+//     return Money.create(this._value.amount + other.value.amount, this._value.currency);
+//   }
+// }
+//
+// // Usage:
+// const email = Email.create('User@Example.COM');
+// console.log(email.value);          // 'user@example.com'
+// console.log(email.toJSON());       // 'user@example.com'
+// email.equals(Email.create('user@example.com')); // true

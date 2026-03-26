@@ -1,0 +1,187 @@
+import { Entity } from '@/shared/base-classes/entity';
+import { NotFoundError } from '@/shared/domain-errors/errors';
+import { RepositoryInterface } from '@/shared/repository-contracts/repository-contracts';
+import {
+  SearchParams,
+  SearchResult,
+  SearchableRepositoryInterface,
+  SortDirection,
+} from '@/shared/repository-contracts/searchable-repository';
+
+// =============================================================================
+// InMemoryRepository — base for unit-test doubles
+// =============================================================================
+
+/**
+ * Simple in-memory store implementing the base `RepositoryInterface`.
+ * All operations are synchronous in-memory mutations wrapped in Promises.
+ *
+ * Usage: extend this class to create fast, dependency-free test doubles for
+ * unit tests. No database, no Prisma, no containers needed.
+ */
+export abstract class InMemoryRepository<E extends Entity>
+  implements RepositoryInterface<E>
+{
+  /** Mutable in-memory store — accessible in tests for assertions. */
+  items: E[] = [];
+
+  async insert(entity: E): Promise<void> {
+    this.items.push(entity);
+  }
+
+  async findById(id: string): Promise<E> {
+    return this._get(id);
+  }
+
+  async findAll(): Promise<E[]> {
+    return this.items;
+  }
+
+  async update(entity: E): Promise<void> {
+    await this._get(entity.id);
+    const index = this.items.findIndex(item => item.id === entity.id);
+    this.items[index] = entity;
+  }
+
+  async delete(id: string): Promise<void> {
+    await this._get(id);
+    const index = this.items.findIndex(item => item.id === id);
+    this.items.splice(index, 1);
+  }
+
+  protected async _get(id: string): Promise<E> {
+    const entity = this.items.find(item => item.id === `${id}`);
+    if (!entity) {
+      throw new NotFoundError(`Entity not found: ${id}`);
+    }
+    return entity;
+  }
+}
+
+// =============================================================================
+// InMemorySearchableRepository — adds paginated search
+// =============================================================================
+
+/**
+ * Extends `InMemoryRepository` with full search support (filter, sort, paginate).
+ *
+ * Concrete subclasses MUST implement `applyFilter()`.
+ * `applySort()` and `applyPaginate()` have sensible defaults but may be overridden.
+ */
+export abstract class InMemorySearchableRepository<E extends Entity, Filter = string>
+  extends InMemoryRepository<E>
+  implements
+    SearchableRepositoryInterface<
+      E,
+      Filter,
+      SearchParams<Filter>,
+      SearchResult<E, Filter>
+    >
+{
+  /**
+   * Declare the entity fields that can be used as sort targets.
+   * Requests with a `sort` value NOT in this list return results unsorted.
+   *
+   * @example
+   * sortableFields = ['name', 'createdAt'];
+   */
+  sortableFields: string[] = [];
+
+  async search(params: SearchParams<Filter>): Promise<SearchResult<E, Filter>> {
+    const filtered = await this.applyFilter(this.items, params.filter);
+    const sorted = await this.applySort(filtered, params.sort, params.sortDir);
+    const paginated = await this.applyPaginate(sorted, params.page, params.perPage);
+
+    return new SearchResult({
+      items: paginated,
+      total: filtered.length,
+      currentPage: params.page,
+      perPage: params.perPage,
+      sort: params.sort,
+      sortDir: params.sortDir,
+      filter: params.filter,
+    });
+  }
+
+  /**
+   * Apply domain-specific filtering logic.
+   * Return a subset of `items` matching the `filter` value.
+   * When `filter` is null, return all items unchanged.
+   */
+  protected abstract applyFilter(items: E[], filter: Filter | null): Promise<E[]>;
+
+  /**
+   * Sorts items by the given field and direction.
+   * Returns items unchanged when `sort` is null or not in `sortableFields`.
+   */
+  protected async applySort(
+    items: E[],
+    sort: string | null,
+    sortDir: SortDirection | null,
+  ): Promise<E[]> {
+    if (!sort || !this.sortableFields.includes(sort)) {
+      return items;
+    }
+    return [...items].sort((a, b) => {
+      const aVal = (a.props as Record<string, unknown>)[sort];
+      const bVal = (b.props as Record<string, unknown>)[sort];
+      if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }
+
+  /**
+   * Slices the array to the requested page window.
+   */
+  protected async applyPaginate(
+    items: E[],
+    page: SearchParams['page'],
+    perPage: SearchParams['perPage'],
+  ): Promise<E[]> {
+    const start = (page - 1) * perPage;
+    return items.slice(start, start + perPage);
+  }
+}
+
+// =============================================================================
+// Usage examples
+// =============================================================================
+//
+// // 1. Minimal concrete in-memory repository (no filter)
+// class InMemoryCustomerRepository
+//   extends InMemorySearchableRepository<Customer, string>
+// {
+//   sortableFields = ['name', 'createdAt'];
+//
+//   protected async applyFilter(items: Customer[], filter: string | null): Promise<Customer[]> {
+//     if (!filter) return items;
+//     const lower = filter.toLowerCase();
+//     return items.filter(c =>
+//       c.props.name.toLowerCase().includes(lower) ||
+//       c.props.email.toLowerCase().includes(lower),
+//     );
+//   }
+// }
+//
+// // 2. Use in unit tests
+// describe('CreateCustomer', () => {
+//   let repo: InMemoryCustomerRepository;
+//   let handler: CreateCustomerHandler;
+//
+//   beforeEach(() => {
+//     repo = new InMemoryCustomerRepository();
+//     handler = new CreateCustomerHandler(repo, new EventPublisherMock());
+//   });
+//
+//   it('persists the entity', async () => {
+//     await handler.execute(new CreateCustomerCommand({ name: 'Alice', email: 'alice@x.com' }));
+//     expect(repo.items).toHaveLength(1);
+//     expect(repo.items[0].props.name).toBe('Alice');
+//   });
+// });
+//
+// // 3. Paginated search
+// const result = await repo.search(new SearchParams({ page: 1, perPage: 10, filter: 'Alice' }));
+// console.log(result.items);    // filtered + paginated customers
+// console.log(result.lastPage); // computed from total

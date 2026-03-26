@@ -1,0 +1,209 @@
+import { Module, DynamicModule, Global, Injectable, Inject } from '@nestjs/common';
+import { ConfigModule, ConfigModuleOptions, ConfigService } from '@nestjs/config';
+import { join } from 'path';
+
+// =============================================================================
+// EnvConfig interface — the port
+// =============================================================================
+
+/**
+ * Port interface for reading environment configuration.
+ * Consume this via injection; never depend on `ConfigService` directly outside infra.
+ *
+ * Add getters here as the application grows. Each getter must:
+ *   - Return a typed value (string, number, boolean)
+ *   - Throw a descriptive error for required vars that are missing
+ *   - Provide a sensible default for optional vars
+ */
+export interface EnvConfig {
+  // --- Application ---
+  getAppPort(): number;
+  getEnvironment(): 'development' | 'staging' | 'production' | 'test';
+  isProduction(): boolean;
+
+  // --- Database ---
+  getDatabaseUrl(): string;
+
+  // --- Auth ---
+  getJwtSecret(): string;
+  getJwtExpiresInSeconds(): number;
+
+  // --- Frontend / Backend URLs ---
+  getFrontendUrl(): string;
+  getBackendUrl(): string;
+
+  // --- Redis ---
+  getRedisUrl(): string;
+
+  // --- RabbitMQ ---
+  getRabbitmqUrl(): string;
+}
+
+// =============================================================================
+// EnvConfigService — the adapter
+// =============================================================================
+
+/**
+ * Concrete implementation of `EnvConfig` backed by NestJS `ConfigService`.
+ *
+ * Reads from `.env` and `.env.<NODE_ENV>.local` files (configured in `EnvConfigModule`).
+ * Injectable only within the infrastructure layer — domain/application layers
+ * depend on the `EnvConfig` interface, NOT this class.
+ */
+@Injectable()
+export class EnvConfigService implements EnvConfig {
+  constructor(
+    @Inject(ConfigService)
+    private readonly config: ConfigService,
+  ) {}
+
+  // Convenience helpers -------------------------------------------------------
+
+  private getString(key: string, defaultValue?: string): string {
+    const value = this.config.get<string>(key, defaultValue);
+    if (value === undefined || value === null) {
+      throw new Error(`Missing required environment variable: ${key}`);
+    }
+    return value;
+  }
+
+  private getNumber(key: string, defaultValue?: number): number {
+    const raw = this.config.get<string>(key);
+    const value = raw !== undefined ? Number(raw) : defaultValue;
+    if (value === undefined || Number.isNaN(value)) {
+      throw new Error(`Missing or invalid environment variable: ${key} (expected number)`);
+    }
+    return value;
+  }
+
+  private getBoolean(key: string, defaultValue = false): boolean {
+    const raw = this.config.get<string>(key);
+    if (raw === undefined) return defaultValue;
+    return raw === 'true' || raw === '1';
+  }
+
+  // --- Application -----------------------------------------------------------
+
+  getAppPort(): number {
+    return this.getNumber('APP_PORT', 3000);
+  }
+
+  getEnvironment(): 'development' | 'staging' | 'production' | 'test' {
+    const env = this.config.get<string>('NODE_ENV', 'development');
+    return env as 'development' | 'staging' | 'production' | 'test';
+  }
+
+  isProduction(): boolean {
+    return this.getEnvironment() === 'production';
+  }
+
+  // --- Database --------------------------------------------------------------
+
+  getDatabaseUrl(): string {
+    return this.getString('DATABASE_URL');
+  }
+
+  // --- Auth ------------------------------------------------------------------
+
+  getJwtSecret(): string {
+    return this.getString('JWT_SECRET');
+  }
+
+  getJwtExpiresInSeconds(): number {
+    return this.getNumber('JWT_EXPIRES_IN_SECONDS', 3600);
+  }
+
+  // --- URLs ------------------------------------------------------------------
+
+  getFrontendUrl(): string {
+    return this.getString('FRONTEND_URL');
+  }
+
+  getBackendUrl(): string {
+    return this.getString('API_URL');
+  }
+
+  // --- Redis -----------------------------------------------------------------
+
+  getRedisUrl(): string {
+    return this.getString('REDIS_URL', 'redis://localhost:6379');
+  }
+
+  // --- RabbitMQ --------------------------------------------------------------
+
+  getRabbitmqUrl(): string {
+    return this.getString('RABBITMQ_URL', 'amqp://guest:guest@localhost:5672');
+  }
+}
+
+// =============================================================================
+// EnvConfigModule — global DynamicModule
+// =============================================================================
+
+/**
+ * Global module providing `EnvConfigService` everywhere.
+ *
+ * Usage in AppModule:
+ *   imports: [EnvConfigModule.forRoot()]
+ *
+ * Or with custom options:
+ *   imports: [EnvConfigModule.forRoot({ isGlobal: true, cache: true })]
+ *
+ * Then inject in any provider:
+ *   constructor(private readonly envConfig: EnvConfigService) {}
+ */
+@Global()
+@Module({})
+export class EnvConfigModule {
+  static forRoot(options: ConfigModuleOptions = {}): DynamicModule {
+    return {
+      module: EnvConfigModule,
+      global: true,
+      imports: [
+        ConfigModule.forRoot({
+          isGlobal: true,
+          cache: true,
+          envFilePath: [
+            join(process.cwd(), '.env'),
+            join(process.cwd(), `.env.${process.env.NODE_ENV ?? 'development'}.local`),
+          ],
+          ...options,
+        }),
+      ],
+      providers: [EnvConfigService],
+      exports: [EnvConfigService],
+    };
+  }
+}
+
+// =============================================================================
+// Usage examples
+// =============================================================================
+//
+// // app.module.ts
+// @Module({
+//   imports: [EnvConfigModule.forRoot()],
+// })
+// export class AppModule {}
+//
+// // Any provider
+// @Injectable()
+// export class SomeService {
+//   constructor(private readonly envConfig: EnvConfigService) {}
+//
+//   doSomething() {
+//     const port = this.envConfig.getAppPort();       // number
+//     const secret = this.envConfig.getJwtSecret();   // string (throws if missing)
+//     const isProd = this.envConfig.isProduction();   // boolean
+//   }
+// }
+//
+// // .env
+// // APP_PORT=3002
+// // DATABASE_URL=postgresql://user:pass@localhost:5440/mydb
+// // JWT_SECRET=super-secret
+// // JWT_EXPIRES_IN_SECONDS=86400
+// // FRONTEND_URL=http://localhost:3000
+// // API_URL=http://localhost:3002
+// // REDIS_URL=redis://localhost:6379
+// // RABBITMQ_URL=amqp://user:pass@localhost:5672

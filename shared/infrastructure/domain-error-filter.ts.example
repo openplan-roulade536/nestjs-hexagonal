@@ -1,0 +1,131 @@
+import {
+  ExceptionFilter,
+  Catch,
+  ArgumentsHost,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
+import { Request, Response } from 'express';
+import {
+  NotFoundError,
+  ConflictError,
+  BadRequestError,
+  ValidationError,
+  EntityValidationError,
+  ForbiddenError,
+  InvalidArgumentError,
+} from '@/shared/domain-errors/errors';
+
+/**
+ * Global exception filter that maps domain errors to HTTP responses.
+ *
+ * Registration (global scope):
+ *   app.useGlobalFilters(new DomainErrorFilter());
+ *
+ * Or per-module:
+ *   @UseFilters(DomainErrorFilter)
+ *
+ * Priority: domain errors checked first, then NestJS HttpException, then 500.
+ *
+ * Response shape:
+ *   { statusCode: number, message: string | object, timestamp: string, path: string }
+ */
+@Catch()
+export class DomainErrorFilter implements ExceptionFilter {
+  /**
+   * Maps each domain error constructor to its HTTP status code.
+   * Order matters: more specific errors should come before general ones.
+   */
+  private readonly errorStatusMap = new Map<
+    new (...args: unknown[]) => Error,
+    number
+  >([
+    [NotFoundError,           HttpStatus.NOT_FOUND],            // 404
+    [ConflictError,           HttpStatus.CONFLICT],              // 409
+    [BadRequestError,         HttpStatus.BAD_REQUEST],           // 400
+    [ValidationError,         HttpStatus.BAD_REQUEST],           // 400
+    [EntityValidationError,   HttpStatus.BAD_REQUEST],           // 400
+    [ForbiddenError,          HttpStatus.FORBIDDEN],             // 403
+    [InvalidArgumentError,    HttpStatus.UNPROCESSABLE_ENTITY],  // 422
+  ]);
+
+  catch(exception: unknown, host: ArgumentsHost): void {
+    const ctx = host.switchToHttp();
+    const response = ctx.getResponse<Response>();
+    const request = ctx.getRequest<Request>();
+
+    let status = HttpStatus.INTERNAL_SERVER_ERROR;
+    let message: string | object = 'Internal server error';
+
+    if (exception instanceof Error) {
+      const ExceptionClass = exception.constructor as new (...args: unknown[]) => Error;
+
+      if (this.errorStatusMap.has(ExceptionClass)) {
+        // Domain error — use mapped status
+        status = this.errorStatusMap.get(ExceptionClass);
+
+        // EntityValidationError carries a structured errors object
+        if (exception instanceof EntityValidationError) {
+          message = { errors: exception.errors };
+        } else {
+          message = exception.message;
+        }
+      } else if (exception instanceof HttpException) {
+        // NestJS HTTP exception (e.g., from class-validator pipeline)
+        status = exception.getStatus();
+        const body = exception.getResponse();
+        message =
+          typeof body === 'object' && body && 'message' in body
+            ? (body as { message: string | object }).message
+            : exception.message;
+      } else {
+        // Unexpected error — log and return 500
+        // Replace with your logger: this.logger.error(exception);
+        message = `Internal server error: ${exception.message}`;
+      }
+    }
+
+    response.status(status).json({
+      statusCode: status,
+      message,
+      timestamp: new Date().toISOString(),
+      path: request.url,
+    });
+  }
+}
+
+// =============================================================================
+// Usage examples
+// =============================================================================
+//
+// // main.ts — register globally
+// import { NestFactory } from '@nestjs/core';
+// import { AppModule } from './app.module';
+// import { DomainErrorFilter } from '@/shared/infrastructure/domain-error-filter';
+//
+// async function bootstrap() {
+//   const app = await NestFactory.create(AppModule);
+//   app.useGlobalFilters(new DomainErrorFilter());
+//   await app.listen(3000);
+// }
+//
+// // When a use case throws `NotFoundError('Customer not found')`:
+// // HTTP Response:
+// // {
+// //   "statusCode": 404,
+// //   "message": "Customer not found",
+// //   "timestamp": "2026-03-26T00:00:00.000Z",
+// //   "path": "/api/v1/customers/abc-123"
+// // }
+//
+// // When a use case throws `EntityValidationError({ name: ['required'], email: ['invalid'] })`:
+// // HTTP Response:
+// // {
+// //   "statusCode": 400,
+// //   "message": { "errors": { "name": ["required"], "email": ["invalid"] } },
+// //   "timestamp": "...",
+// //   "path": "..."
+// // }
+//
+// // Adding more domain errors to the map:
+// // this.errorStatusMap.set(PaymentDeclinedError, HttpStatus.PAYMENT_REQUIRED);  // 402

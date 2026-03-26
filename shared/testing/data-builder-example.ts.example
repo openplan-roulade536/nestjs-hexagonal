@@ -1,0 +1,143 @@
+import { faker } from '@faker-js/faker';
+import { DefineDataBuilder } from '@/shared/testing/define-data-builder';
+
+// =============================================================================
+// Props type — mirrors the domain entity's create props
+// =============================================================================
+
+/**
+ * Mirrors `CustomerCreateProps` (or the entity's constructor input) so the
+ * builder is typed against the real domain model.
+ */
+interface CustomerProps {
+  name: string;
+  email: string;
+  document: string;       // CPF or CNPJ
+  phone: string | null;
+  organizationId: string;
+  status: 'active' | 'inactive' | 'blocked';
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// =============================================================================
+// Base builder
+// =============================================================================
+
+/**
+ * Generates realistic Customer test data.
+ * All fields use faker — every call to `.build()` produces unique values.
+ *
+ * @example
+ * const props = CustomerDataBuilder.build();
+ * const customer = Customer.create(props);
+ */
+export const CustomerDataBuilder = DefineDataBuilder.define<CustomerProps>(() => {
+  const now = new Date();
+  return {
+    name:           faker.person.fullName(),
+    email:          faker.internet.email().toLowerCase(),
+    document:       generateCpf(),
+    phone:          faker.phone.number({ style: 'international' }),
+    organizationId: faker.string.uuid(),
+    status:         'active',
+    createdAt:      now,
+    updatedAt:      now,
+  };
+});
+
+// =============================================================================
+// Composed variants — pre-configured overrides for common scenarios
+// =============================================================================
+
+/**
+ * Customer that is inactive.
+ *
+ * @example
+ * const props = InactiveCustomerBuilder.build();
+ */
+export const InactiveCustomerBuilder = DefineDataBuilder.define<CustomerProps>(() =>
+  CustomerDataBuilder.build({ status: 'inactive' }),
+);
+
+/**
+ * Customer that is blocked.
+ *
+ * @example
+ * const props = BlockedCustomerBuilder.build();
+ */
+export const BlockedCustomerBuilder = DefineDataBuilder.define<CustomerProps>(() =>
+  CustomerDataBuilder.build({ status: 'blocked' }),
+);
+
+/**
+ * Customer with a CNPJ (Brazilian company document) instead of CPF.
+ *
+ * @example
+ * const props = CompanyCustomerBuilder.build({ name: 'Acme Ltda.' });
+ */
+export const CompanyCustomerBuilder = DefineDataBuilder.define<CustomerProps>(() =>
+  CustomerDataBuilder.build({ document: generateCnpj() }),
+);
+
+/**
+ * Customer without a phone number (phone is optional in the domain).
+ *
+ * @example
+ * const props = CustomerWithoutPhoneBuilder.build();
+ */
+export const CustomerWithoutPhoneBuilder = DefineDataBuilder.define<CustomerProps>(() =>
+  CustomerDataBuilder.build({ phone: null }),
+);
+
+// =============================================================================
+// Helpers — document generators (simplified, for test data only)
+// =============================================================================
+
+/** Generates a plausible-looking CPF string (11 digits, formatted). */
+function generateCpf(): string {
+  const n = () => faker.number.int({ min: 0, max: 9 });
+  const digits = Array.from({ length: 11 }, n).join('');
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+}
+
+/** Generates a plausible-looking CNPJ string (14 digits, formatted). */
+function generateCnpj(): string {
+  const n = () => faker.number.int({ min: 0, max: 9 });
+  const digits = Array.from({ length: 14 }, n).join('');
+  return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
+}
+
+// =============================================================================
+// Usage examples
+// =============================================================================
+//
+// import { CustomerDataBuilder, InactiveCustomerBuilder } from '@/shared/testing/data-builder-example';
+//
+// // --- Unit test ---
+// describe('Customer entity', () => {
+//   it('creates with valid props', () => {
+//     const props = CustomerDataBuilder.build();
+//     const customer = Customer.create(props);
+//     expect(customer.props.status).toBe('active');
+//   });
+//
+//   it('does not allow blocking an inactive customer', () => {
+//     const props = InactiveCustomerBuilder.build();
+//     const customer = Customer.restore(props, faker.string.uuid());
+//     expect(() => customer.block()).toThrow(BadRequestError);
+//   });
+//
+//   it('creates many customers in the same organization', () => {
+//     const orgId = faker.string.uuid();
+//     const all = CustomerDataBuilder.buildMany(5, { organizationId: orgId });
+//     expect(all).toHaveLength(5);
+//     expect(all.every(c => c.organizationId === orgId)).toBe(true);
+//   });
+// });
+//
+// // --- In-memory repository seeding ---
+// const repo = new InMemoryCustomerRepository();
+// await Promise.all(
+//   CustomerDataBuilder.buildMany(20).map(p => repo.insert(Customer.create(p))),
+// );

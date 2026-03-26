@@ -1,0 +1,107 @@
+import { Entity } from '@/shared/base-classes/entity';
+
+/**
+ * Core repository interface — PURE persistence contract.
+ *
+ * Rules:
+ *   - No event dispatch, no knowledge of domain events
+ *   - No business logic — only CRUD operations
+ *   - Implementations live in the infrastructure layer (Prisma, TypeORM, etc.)
+ *   - Application layer depends on THIS interface, never on concrete implementations
+ *   - Register as a port token in the module: `{ provide: CUSTOMER_REPOSITORY, useClass: PrismaCustomerRepository }`
+ *
+ * @template E - The aggregate root / entity type this repository manages
+ */
+export interface RepositoryInterface<E extends Entity> {
+  /**
+   * Persists a new entity. Throws `ConflictError` if the ID already exists.
+   * @param entity - The entity to insert
+   */
+  insert(entity: E): Promise<void>;
+
+  /**
+   * Retrieves an entity by its UUID. Throws `NotFoundError` if not found.
+   * @param id - UUID string of the entity
+   */
+  findById(id: string): Promise<E>;
+
+  /**
+   * Returns all entities in the repository (use only for small collections).
+   * Prefer `SearchableRepositoryInterface.search()` for paginated access.
+   */
+  findAll(): Promise<E[]>;
+
+  /**
+   * Persists changes to an existing entity. Throws `NotFoundError` if the
+   * entity doesn't exist yet.
+   * @param entity - The updated entity
+   */
+  update(entity: E): Promise<void>;
+
+  /**
+   * Removes an entity by ID. Throws `NotFoundError` if it doesn't exist.
+   * @param id - UUID string of the entity to delete
+   */
+  delete(id: string): Promise<void>;
+}
+
+// =============================================================================
+// Usage examples
+// =============================================================================
+//
+// // 1. Define the port token (application layer)
+// export const CUSTOMER_REPOSITORY = Symbol('CUSTOMER_REPOSITORY');
+//
+// // 2. Declare the port interface (application layer)
+// export interface CustomerRepositoryPort extends RepositoryInterface<Customer> {
+//   findByEmail(email: string): Promise<Customer | null>;
+// }
+//
+// // 3. Implement in infrastructure
+// @Injectable()
+// export class PrismaCustomerRepository implements CustomerRepositoryPort {
+//   constructor(private readonly prisma: PrismaService) {}
+//
+//   async insert(entity: Customer): Promise<void> {
+//     const data = CustomerMapper.toPrisma(entity);
+//     await this.prisma.customer.create({ data });
+//   }
+//
+//   async findById(id: string): Promise<Customer> {
+//     const row = await this.prisma.customer.findUnique({ where: { id } });
+//     if (!row) throw new NotFoundError(`Customer not found: ${id}`);
+//     return CustomerMapper.toDomain(row);
+//   }
+//
+//   async findByEmail(email: string): Promise<Customer | null> {
+//     const row = await this.prisma.customer.findUnique({ where: { email } });
+//     return row ? CustomerMapper.toDomain(row) : null;
+//   }
+//
+//   // ... findAll, update, delete
+// }
+//
+// // 4. Wire in the module
+// @Module({
+//   providers: [
+//     { provide: CUSTOMER_REPOSITORY, useClass: PrismaCustomerRepository },
+//   ],
+//   exports: [CUSTOMER_REPOSITORY],
+// })
+// export class CustomerModule {}
+//
+// // 5. Inject in a use case / command handler
+// @CommandHandler(CreateCustomerCommand)
+// export class CreateCustomerHandler {
+//   constructor(
+//     @Inject(CUSTOMER_REPOSITORY) private readonly repo: CustomerRepositoryPort,
+//     private readonly publisher: EventPublisher,
+//   ) {}
+//
+//   async execute(command: CreateCustomerCommand): Promise<void> {
+//     const customer = Customer.create({ name: command.name, email: command.email });
+//     this.publisher.mergeObjectContext(customer);
+//     await this.repo.insert(customer);
+//     customer.commit();
+//   }
+// }

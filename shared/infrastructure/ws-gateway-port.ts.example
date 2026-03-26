@@ -1,0 +1,87 @@
+// ws-gateway-port.ts
+// Place in: shared/ports/ws-gateway.port.ts
+//
+// This is the hexagonal port for WebSocket broadcasting.
+// - Import this interface in application/infrastructure layers only.
+// - Inject via WS_GATEWAY_TOKEN — never import the concrete gateway class.
+// - The concrete gateway (AppGateway) lives in infrastructure/gateways/ and
+//   is registered with { provide: WS_GATEWAY_TOKEN, useExisting: AppGateway }.
+
+export const WS_GATEWAY_TOKEN = Symbol('WsGateway');
+
+export interface WsGatewayPort {
+  /**
+   * Emit to all connected clients of an organization.
+   * Default routing target for all business events.
+   * Uses room `org:${organizationId}` internally.
+   */
+  emitToOrganization(organizationId: string, event: string, data: Record<string, unknown>): void;
+
+  /**
+   * Emit to a specific user across all their connected sockets.
+   * Uses room `user:${userId}` internally.
+   * Use for personal notifications, DMs, or targeted updates.
+   */
+  emitToUser(userId: string, event: string, data: Record<string, unknown>): void;
+
+  /**
+   * Emit to all connected clients regardless of organization.
+   * Use only for system-level events with no tenant-scoped data.
+   */
+  emitGlobal(event: string, data: Record<string, unknown>): void;
+}
+
+// ── Usage in a CQRS event handler ──
+//
+// import { Inject } from '@nestjs/common';
+// import { EventsHandler, IEventHandler } from '@nestjs/cqrs';
+// import { WS_GATEWAY_TOKEN } from '@/shared/ports/ws-gateway.port';
+// import type { WsGatewayPort } from '@/shared/ports/ws-gateway.port';
+//
+// @EventsHandler(SomeDomainEvent)
+// export class SomeBroadcastHandler implements IEventHandler<SomeDomainEvent> {
+//   constructor(
+//     @Inject(WS_GATEWAY_TOKEN) private readonly gateway: WsGatewayPort,
+//   ) {}
+//
+//   async handle(event: SomeDomainEvent): Promise<void> {
+//     this.gateway.emitToOrganization(event.organizationId, 'entity:action', {
+//       id: event.aggregateId.toString(),
+//       organizationId: event.organizationId,
+//       occurredOn: event.occurredOn.toISOString(),
+//     });
+//   }
+// }
+
+// ── Module wiring ──
+//
+// @Module({
+//   providers: [
+//     AppGateway,
+//     { provide: WS_GATEWAY_TOKEN, useExisting: AppGateway },
+//   ],
+//   exports: [WS_GATEWAY_TOKEN],
+// })
+// export class GatewayModule {}
+
+// ── Mock for unit tests ──
+//
+// export class MockWsGateway implements WsGatewayPort {
+//   readonly emittedToOrganization: Array<{
+//     organizationId: string; event: string; data: Record<string, unknown>;
+//   }> = [];
+//   readonly emittedToUser: Array<{
+//     userId: string; event: string; data: Record<string, unknown>;
+//   }> = [];
+//   readonly emittedGlobal: Array<{ event: string; data: Record<string, unknown> }> = [];
+//
+//   emitToOrganization(organizationId: string, event: string, data: Record<string, unknown>): void {
+//     this.emittedToOrganization.push({ organizationId, event, data });
+//   }
+//   emitToUser(userId: string, event: string, data: Record<string, unknown>): void {
+//     this.emittedToUser.push({ userId, event, data });
+//   }
+//   emitGlobal(event: string, data: Record<string, unknown>): void {
+//     this.emittedGlobal.push({ event, data });
+//   }
+// }

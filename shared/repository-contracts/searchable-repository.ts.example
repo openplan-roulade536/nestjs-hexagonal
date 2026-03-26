@@ -1,0 +1,242 @@
+import { Entity } from '@/shared/base-classes/entity';
+import { RepositoryInterface } from '@/shared/repository-contracts/repository-contracts';
+
+// =============================================================================
+// Shared types
+// =============================================================================
+
+export type SortDirection = 'asc' | 'desc';
+
+export type SearchProps<Filter = string> = {
+  page?: number;
+  perPage?: number;
+  sort?: string | null;
+  sortDir?: SortDirection | null;
+  filter?: Filter | null;
+};
+
+export type SearchResultProps<E extends Entity, Filter> = {
+  items: E[];
+  total: number;
+  currentPage: number;
+  perPage: number;
+  sort: string | null;
+  sortDir: string | null;
+  filter: Filter | null;
+};
+
+// =============================================================================
+// SearchParams — validated input
+// =============================================================================
+
+/**
+ * Encapsulates pagination, sorting, and filtering parameters for a search query.
+ * Automatically coerces and validates all inputs on construction.
+ *
+ * Defaults: page=1, perPage=15, sort=null, sortDir=null, filter=null
+ */
+export class SearchParams<Filter = string> {
+  protected _page: number;
+  protected _perPage = 15;
+  protected _sort: string | null;
+  protected _sortDir: SortDirection | null;
+  protected _filter: Filter | null;
+
+  constructor(props: SearchProps<Filter> = {}) {
+    this.page = props.page;
+    this.perPage = props.perPage;
+    this.sort = props.sort;
+    this.sortDir = props.sortDir;
+    this.filter = props.filter;
+  }
+
+  // --- page ---
+
+  get page(): number {
+    return this._page;
+  }
+
+  /** Coerces to integer >= 1. Invalid values default to 1. */
+  private set page(value: number) {
+    let _page = +value;
+    if (Number.isNaN(_page) || _page <= 0 || parseInt(String(_page)) !== _page) {
+      _page = 1;
+    }
+    this._page = _page;
+  }
+
+  // --- perPage ---
+
+  get perPage(): number {
+    return this._perPage;
+  }
+
+  /** Coerces to integer >= 1. Invalid values keep the current default (15). */
+  private set perPage(value: number) {
+    // `value === true` guard prevents truthy booleans from overriding default
+    let _perPage = (value as unknown) === true ? this._perPage : +value;
+    if (
+      Number.isNaN(_perPage) ||
+      _perPage <= 0 ||
+      parseInt(String(_perPage)) !== _perPage
+    ) {
+      _perPage = this._perPage;
+    }
+    this._perPage = _perPage;
+  }
+
+  // --- sort ---
+
+  get sort(): string | null {
+    return this._sort;
+  }
+
+  /** Null / empty strings become `null`. */
+  private set sort(value: string | null) {
+    this._sort =
+      value === null || value === undefined || value === '' ? null : `${value}`;
+  }
+
+  // --- sortDir ---
+
+  get sortDir(): SortDirection | null {
+    return this._sortDir;
+  }
+
+  /** Only valid when `sort` is set. Defaults to `'desc'` for unrecognised values. */
+  private set sortDir(value: string | null) {
+    if (!this.sort) {
+      this._sortDir = null;
+      return;
+    }
+    const dir = `${value}`.toLowerCase();
+    this._sortDir = dir !== 'asc' && dir !== 'desc' ? 'desc' : dir;
+  }
+
+  // --- filter ---
+
+  get filter(): Filter | null {
+    return this._filter;
+  }
+
+  /** Null, undefined, and empty strings become `null`. */
+  private set filter(value: Filter | null) {
+    this._filter =
+      value === null ||
+      value === undefined ||
+      (typeof value === 'string' && value === '')
+        ? null
+        : value;
+  }
+}
+
+// =============================================================================
+// SearchResult — paginated output
+// =============================================================================
+
+/**
+ * Wraps a paginated list of entities with metadata.
+ * `lastPage` is computed automatically from `total` and `perPage`.
+ */
+export class SearchResult<E extends Entity, Filter = string> {
+  readonly items: E[];
+  readonly total: number;
+  readonly currentPage: number;
+  readonly perPage: number;
+  /** Total number of pages: `Math.max(1, Math.ceil(total / perPage))`. */
+  readonly lastPage: number;
+  readonly sort: string | null;
+  readonly sortDir: string | null;
+  readonly filter: Filter | null;
+
+  constructor(props: SearchResultProps<E, Filter>) {
+    this.items = props.items;
+    this.total = props.total;
+    this.currentPage = props.currentPage;
+    this.perPage = props.perPage;
+    this.lastPage = Math.max(1, Math.ceil(this.total / this.perPage));
+    this.sort = props.sort ?? null;
+    this.sortDir = props.sortDir ?? null;
+    this.filter = props.filter ?? null;
+  }
+
+  /**
+   * Returns a plain object representation.
+   * @param forceEntity - When `true`, each item is serialized via `item.toJSON()`
+   */
+  toJSON(forceEntity = false) {
+    return {
+      items: forceEntity ? this.items.map(item => item.toJSON()) : this.items,
+      total: this.total,
+      currentPage: this.currentPage,
+      perPage: this.perPage,
+      lastPage: this.lastPage,
+      sort: this.sort,
+      sortDir: this.sortDir,
+      filter: this.filter,
+    };
+  }
+}
+
+// =============================================================================
+// SearchableRepositoryInterface
+// =============================================================================
+
+/**
+ * Extends the base repository contract with paginated search support.
+ *
+ * @template E            - Entity type
+ * @template Filter       - Shape of the filter object (default: string)
+ * @template SearchInput  - Input type (default: SearchParams<Filter>)
+ * @template SearchOutput - Output type (default: SearchResult<E, Filter>)
+ */
+export interface SearchableRepositoryInterface<
+  E extends Entity,
+  Filter = string,
+  SearchInput = SearchParams<Filter>,
+  SearchOutput = SearchResult<E, Filter>,
+> extends RepositoryInterface<E> {
+  /**
+   * Fields that may be used as `sort` targets.
+   * Requests with `sort` values not in this list return unsorted results.
+   */
+  sortableFields: string[];
+
+  /**
+   * Executes a paginated, filtered, sorted search.
+   * @param props - Validated SearchParams instance
+   */
+  search(props: SearchInput): Promise<SearchOutput>;
+}
+
+// =============================================================================
+// Usage examples
+// =============================================================================
+//
+// // Custom filter shape
+// type CustomerFilter = { name?: string; email?: string; status?: 'active' | 'inactive' };
+//
+// // Typed SearchParams subclass (optional — use when you want validated filter)
+// class CustomerSearchParams extends SearchParams<CustomerFilter> {}
+//
+// class CustomerSearchResult extends SearchResult<Customer, CustomerFilter> {}
+//
+// // Port interface in the application layer
+// export const CUSTOMER_REPOSITORY = Symbol('CUSTOMER_REPOSITORY');
+//
+// export interface CustomerRepositoryPort
+//   extends SearchableRepositoryInterface<Customer, CustomerFilter, CustomerSearchParams, CustomerSearchResult> {
+//   findByEmail(email: string): Promise<Customer | null>;
+// }
+//
+// // Calling search from a query handler:
+// const params = new SearchParams<CustomerFilter>({
+//   page: 2,
+//   perPage: 20,
+//   sort: 'createdAt',
+//   sortDir: 'desc',
+//   filter: { status: 'active' },
+// });
+// const result = await repo.search(params);
+// console.log(result.lastPage); // computed automatically
+// console.log(result.toJSON()); // plain object suitable for API response

@@ -1,0 +1,114 @@
+/**
+ * Generic data builder base for test fixtures.
+ *
+ * Provides a composable, override-friendly API for generating test data
+ * without ceremony. Uses a factory function (typically with @faker-js/faker)
+ * to produce realistic default values.
+ *
+ * Pattern:
+ *   1. Call `DefineDataBuilder.define(() => ({ ...faker fields... }))` to create a builder class
+ *   2. Call `.build(overrides?)` to get a single Props object
+ *   3. Call `.buildMany(count, overrides?)` to get an array
+ *
+ * Why not plain object literals in tests?
+ *   - Defaults keep tests short and readable
+ *   - Overrides make the test's intent explicit
+ *   - Builders are composable and reusable across test files
+ */
+export class DefineDataBuilder<Props extends object> {
+  private readonly defaultFactory: () => Props;
+
+  protected constructor(factory: () => Props) {
+    this.defaultFactory = factory;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Static factory
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Creates a new builder class bound to the given defaults factory.
+   *
+   * @param factory - A function that returns the default props (called lazily on each `build`)
+   *
+   * @example
+   * export const customerBuilder = DefineDataBuilder.define<CustomerProps>(() => ({
+   *   name: faker.person.fullName(),
+   *   email: faker.internet.email(),
+   *   createdAt: new Date(),
+   * }));
+   */
+  static define<P extends object>(factory: () => P): DefineDataBuilder<P> {
+    return new DefineDataBuilder<P>(factory);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Build methods
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Generates a single props object by merging defaults with `overrides`.
+   * Defaults are generated fresh on each call — no shared mutable state.
+   *
+   * @param overrides - Partial props to override on top of the defaults
+   *
+   * @example
+   * const props = customerBuilder.build({ name: 'Alice' });
+   * // props.name === 'Alice', all other fields are faker-generated
+   */
+  build(overrides: Partial<Props> = {}): Props {
+    return { ...this.defaultFactory(), ...overrides };
+  }
+
+  /**
+   * Generates `count` props objects, each with independently generated defaults.
+   * The same `overrides` are applied to every item.
+   *
+   * @param count     - Number of items to generate (>= 1)
+   * @param overrides - Partial props applied to each item
+   *
+   * @example
+   * const fiveCustomers = customerBuilder.buildMany(5);
+   * const threeAdmins   = customerBuilder.buildMany(3, { role: 'admin' });
+   */
+  buildMany(count: number, overrides: Partial<Props> = {}): Props[] {
+    return Array.from({ length: count }, () => this.build(overrides));
+  }
+}
+
+// =============================================================================
+// Usage examples
+// =============================================================================
+//
+// import { faker } from '@faker-js/faker';
+// import { DefineDataBuilder } from '@/shared/testing/define-data-builder';
+//
+// // --- Define ---
+// interface CustomerProps {
+//   name: string;
+//   email: string;
+//   organizationId: string;
+//   createdAt: Date;
+//   updatedAt: Date;
+// }
+//
+// export const customerBuilder = DefineDataBuilder.define<CustomerProps>(() => {
+//   const now = new Date();
+//   return {
+//     name:           faker.person.fullName(),
+//     email:          faker.internet.email(),
+//     organizationId: faker.string.uuid(),
+//     createdAt:      now,
+//     updatedAt:      now,
+//   };
+// });
+//
+// // --- Use in tests ---
+// const defaultCustomer = customerBuilder.build();
+// const namedCustomer   = customerBuilder.build({ name: 'Alice', email: 'alice@example.com' });
+// const fiveCustomers   = customerBuilder.buildMany(5);
+// const tenInSameOrg    = customerBuilder.buildMany(10, { organizationId: 'org-uuid-123' });
+//
+// // --- Creating entity instances from builder props ---
+// const customer = Customer.create(customerBuilder.build());
+// // then pass to in-memory repo or assert against

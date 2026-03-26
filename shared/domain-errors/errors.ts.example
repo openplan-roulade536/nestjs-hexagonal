@@ -1,0 +1,165 @@
+/**
+ * Domain error hierarchy.
+ *
+ * Rules:
+ *   - Never import @nestjs/* or class-validator here
+ *   - HTTP status codes live only in the infrastructure filter, NOT in these classes
+ *   - Throw these errors from domain and application layers;
+ *     the HttpExceptionFilter maps them to HTTP responses
+ *
+ * Hierarchy:
+ *   DomainError
+ *   ├── NotFoundError          404
+ *   ├── ConflictError          409
+ *   ├── BadRequestError        400
+ *   ├── ValidationError        400
+ *   ├── EntityValidationError  400  (field-level validation failures)
+ *   ├── ForbiddenError         403
+ *   └── InvalidArgumentError   422
+ */
+
+// =============================================================================
+// Base
+// =============================================================================
+
+/** Root of the domain error tree. Extend this for all domain-specific errors. */
+export class DomainError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = this.constructor.name;
+    // Restore the prototype chain (required when extending built-ins in TypeScript)
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
+// =============================================================================
+// Concrete errors
+// =============================================================================
+
+/**
+ * Thrown when a requested resource cannot be found.
+ * Maps to HTTP 404.
+ *
+ * @example throw new NotFoundError(`Customer not found: ${id}`);
+ */
+export class NotFoundError extends DomainError {
+  constructor(message: string) {
+    super(message);
+  }
+}
+
+/**
+ * Thrown when an operation would create a duplicate resource.
+ * Maps to HTTP 409.
+ *
+ * @example throw new ConflictError(`Email already registered: ${email}`);
+ */
+export class ConflictError extends DomainError {
+  constructor(message: string) {
+    super(message);
+  }
+}
+
+/**
+ * Thrown when the caller sends a semantically invalid request.
+ * Maps to HTTP 400.
+ *
+ * @example throw new BadRequestError('Cannot cancel an already-shipped order');
+ */
+export class BadRequestError extends DomainError {
+  constructor(message: string) {
+    super(message);
+  }
+}
+
+/**
+ * Thrown when a single validation rule fails (e.g., in a Value Object).
+ * Maps to HTTP 400.
+ *
+ * @example throw new ValidationError('Amount must be positive');
+ */
+export class ValidationError extends DomainError {
+  constructor(message: string) {
+    super(message);
+  }
+}
+
+/**
+ * Thrown when multiple field-level validations fail simultaneously.
+ * Maps to HTTP 400.
+ *
+ * @example
+ * throw new EntityValidationError({
+ *   name: ['Name is required'],
+ *   email: ['Invalid email format', 'Email already in use'],
+ * });
+ */
+export class EntityValidationError extends DomainError {
+  constructor(public readonly errors: Record<string, string[]>) {
+    super(
+      'Entity validation failed:\n' +
+        Object.entries(errors)
+          .map(([field, messages]) => `  ${field}: ${messages.join(', ')}`)
+          .join('\n'),
+    );
+  }
+
+  /** Returns the error map suitable for API responses. */
+  toJSON(): Record<string, string[]> {
+    return this.errors;
+  }
+}
+
+/**
+ * Thrown when the caller lacks permission to perform an operation.
+ * Maps to HTTP 403.
+ *
+ * @example throw new ForbiddenError('Only admins can delete organizations');
+ */
+export class ForbiddenError extends DomainError {
+  constructor(message: string) {
+    super(message);
+  }
+}
+
+/**
+ * Thrown when a supplied argument violates a domain invariant but is not
+ * simply a missing/malformed input (use BadRequestError for that).
+ * Maps to HTTP 422 Unprocessable Entity.
+ *
+ * @example throw new InvalidArgumentError('sortDir must be "asc" or "desc"');
+ */
+export class InvalidArgumentError extends DomainError {
+  constructor(message: string) {
+    super(message);
+  }
+}
+
+// =============================================================================
+// Usage examples
+// =============================================================================
+//
+// // In a Value Object:
+// export class Email extends ValueObject<string> {
+//   protected validate(): void {
+//     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this._value)) {
+//       throw new InvalidArgumentError(`Invalid email: "${this._value}"`);
+//     }
+//   }
+// }
+//
+// // In a use case:
+// const customer = await repo.findById(id);  // throws NotFoundError if missing
+//
+// if (customer.props.status === 'deleted') {
+//   throw new BadRequestError('Cannot update a deleted customer');
+// }
+//
+// // In the infrastructure filter (HttpExceptionFilter), these map to HTTP codes:
+// // NotFoundError      -> 404
+// // ConflictError      -> 409
+// // BadRequestError    -> 400
+// // ValidationError    -> 400
+// // EntityValidationError -> 400
+// // ForbiddenError     -> 403
+// // InvalidArgumentError -> 422
