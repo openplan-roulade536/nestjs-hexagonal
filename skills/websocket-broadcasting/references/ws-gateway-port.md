@@ -83,16 +83,12 @@ import { JwtModule } from '@nestjs/jwt';
 
 import { WS_GATEWAY_TOKEN } from '@/shared/ports/ws-gateway.port';
 import { AppGateway } from './gateways/app.gateway';
-import { WebSocketRelayListener } from './listeners/websocket-relay.listener';
-import { WsBroadcastRelayListener } from './listeners/ws-broadcast-relay.listener';
 
 @Module({
   imports: [JwtModule.register({ secret: process.env.JWT_SECRET })],
   providers: [
     AppGateway,
     { provide: WS_GATEWAY_TOKEN, useExisting: AppGateway },
-    WebSocketRelayListener,
-    WsBroadcastRelayListener,
   ],
   exports: [WS_GATEWAY_TOKEN],
 })
@@ -236,45 +232,6 @@ describe('OrderCreatedBroadcastHandler', () => {
 
   it('does nothing when organizationId is absent', async () => {
     await handler.handle(new OrderCreatedEvent('order-1', ''));
-
-    expect(gateway.emittedToOrganization).toHaveLength(0);
-  });
-});
-```
-
-### Unit test — relay listener
-
-```typescript
-import { describe, it, expect } from 'vitest';
-import { MockWsGateway } from '@/test/mocks/mock-ws-gateway';
-import { WebSocketRelayListener } from '../websocket-relay.listener';
-
-describe('WebSocketRelayListener', () => {
-  it('routes mapped events to the gateway', async () => {
-    const gateway = new MockWsGateway();
-    const listener = new WebSocketRelayListener(gateway);
-
-    await listener.handleDomainEvent({
-      eventName: 'order.status-changed',
-      aggregateId: { toString: () => 'order-1' },
-      organizationId: 'org-1',
-      occurredOn: new Date(),
-    } as never);
-
-    expect(gateway.lastOrgEmit()?.event).toBe('order:status-changed');
-    expect(gateway.lastOrgEmit()?.organizationId).toBe('org-1');
-  });
-
-  it('skips events not in WEBSOCKET_EVENT_MAP', async () => {
-    const gateway = new MockWsGateway();
-    const listener = new WebSocketRelayListener(gateway);
-
-    await listener.handleDomainEvent({
-      eventName: 'some.unmapped.event',
-      aggregateId: { toString: () => 'x' },
-      organizationId: 'org-1',
-      occurredOn: new Date(),
-    } as never);
 
     expect(gateway.emittedToOrganization).toHaveLength(0);
   });

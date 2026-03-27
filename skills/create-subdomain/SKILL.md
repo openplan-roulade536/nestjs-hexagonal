@@ -18,6 +18,8 @@ allowed-tools:
 
 Orchestrator that dispatches specialized agents per architectural layer. Each agent loads its corresponding skill and follows TDD.
 
+> **Agent Dispatch:** The dispatch blocks below are conceptual templates. In Claude Code, dispatch agents using the `Agent` tool with a `prompt` string that includes "Load skill nestjs-hexagonal:<layer> for patterns." The agent's model and tools are defined in the agent `.md` file frontmatter, not in the tool call.
+
 Compatible with GSD: each phase maps to a GSD execution step.
 
 ---

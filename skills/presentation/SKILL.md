@@ -236,8 +236,16 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const reply = ctx.getResponse<FastifyReply>();
     const request = ctx.getRequest<FastifyRequest>();
 
-    const status = this.resolveStatus(exception);
-    const message = this.resolveMessage(exception, status);
+    let status = HttpStatus.INTERNAL_SERVER_ERROR;
+    for (const [ErrorClass, httpStatus] of ERROR_STATUS_MAP) {
+      if (exception instanceof ErrorClass) {
+        status = httpStatus;
+        break;
+      }
+    }
+
+    const message =
+      exception instanceof Error ? exception.message : 'Internal server error';
 
     if (status === HttpStatus.INTERNAL_SERVER_ERROR) {
       this.logger.error(exception);

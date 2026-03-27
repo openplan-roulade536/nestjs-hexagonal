@@ -2,7 +2,7 @@
 name: presentation-agent
 description: Creates presentation layer artifacts for a NestJS bounded context — REST controllers, request DTOs with class-validator, Swagger decorators, custom validators, and error filters. Dispatched by create-subdomain workflow or triggered by "create controller", "request dto", "swagger endpoint".
 model: sonnet
-color: purple
+color: magenta
 tools:
   - Read
   - Write

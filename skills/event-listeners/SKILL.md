@@ -54,7 +54,7 @@ Lives in `<bc>/infrastructure/listeners/`. Reacts to events from its OWN bounded
 ```typescript
 // infrastructure/listeners/order-created-projection.handler.ts
 import { EventsHandler, IEventHandler } from '@nestjs/cqrs';
-import { Inject } from '@nestjs/common';
+import { Inject, Logger } from '@nestjs/common';
 
 import { OrderCreatedEvent } from '../../domain/events/order-created.event';
 import { REDIS_READ_MODEL_TOKEN } from '../../application/ports/read-model.port';
@@ -62,6 +62,8 @@ import type { ReadModelPort } from '../../application/ports/read-model.port';
 
 @EventsHandler(OrderCreatedEvent)
 export class OrderCreatedProjectionHandler implements IEventHandler<OrderCreatedEvent> {
+  private readonly logger = new Logger(OrderCreatedProjectionHandler.name);
+
   constructor(
     @Inject(REDIS_READ_MODEL_TOKEN)
     private readonly readModel: ReadModelPort,
@@ -78,7 +80,7 @@ export class OrderCreatedProjectionHandler implements IEventHandler<OrderCreated
       });
     } catch (error) {
       // Log but never re-throw — don't break the event chain
-      console.error(`[OrderCreatedProjection] Failed:`, error);
+      this.logger.error(`[OrderCreatedProjection] Failed:`, error);
     }
   }
 }
@@ -119,6 +121,8 @@ import { CreateInvoiceCommand } from '../../application/commands/create-invoice.
 
 @EventsHandler(OrderCreatedEvent)
 export class OrderCreatedInvoiceHandler implements IEventHandler<OrderCreatedEvent> {
+  private readonly logger = new Logger(OrderCreatedInvoiceHandler.name);
+
   constructor(private readonly commandBus: CommandBus) {}
 
   async handle(event: OrderCreatedEvent): Promise<void> {
@@ -132,7 +136,7 @@ export class OrderCreatedInvoiceHandler implements IEventHandler<OrderCreatedEve
         ),
       );
     } catch (error) {
-      console.error(`[OrderCreatedInvoice] Failed to create invoice:`, error);
+      this.logger.error(`[OrderCreatedInvoice] Failed to create invoice:`, error);
     }
   }
 }
@@ -156,13 +160,15 @@ Transforms a domain event into an external output: WebSocket broadcast, RabbitMQ
 ```typescript
 // infrastructure/listeners/order-created-broadcast.handler.ts
 import { EventsHandler, IEventHandler } from '@nestjs/cqrs';
-import { Inject } from '@nestjs/common';
+import { Inject, Logger } from '@nestjs/common';
 
 import { OrderCreatedEvent } from '../../domain/events/order-created.event';
 import { WS_GATEWAY_TOKEN, type WsGatewayPort } from '@/shared/ports/ws-gateway.port';
 
 @EventsHandler(OrderCreatedEvent)
 export class OrderCreatedBroadcastHandler implements IEventHandler<OrderCreatedEvent> {
+  private readonly logger = new Logger(OrderCreatedBroadcastHandler.name);
+
   constructor(
     @Inject(WS_GATEWAY_TOKEN) private readonly gateway: WsGatewayPort,
   ) {}
@@ -175,7 +181,7 @@ export class OrderCreatedBroadcastHandler implements IEventHandler<OrderCreatedE
         status: event.status,
       });
     } catch (error) {
-      console.error(`[OrderCreatedBroadcast] Failed:`, error);
+      this.logger.error(`[OrderCreatedBroadcast] Failed:`, error);
     }
   }
 }
@@ -208,6 +214,8 @@ export interface EventListenerStrategy<T> {
 // Gateway handler — single @EventsHandler, fans out to strategies
 @EventsHandler(OrderCreatedEvent)
 export class OrderCreatedGateway implements IEventHandler<OrderCreatedEvent> {
+  private readonly logger = new Logger(OrderCreatedGateway.name);
+
   constructor(
     @Inject('ORDER_CREATED_STRATEGIES')
     private readonly strategies: EventListenerStrategy<OrderCreatedEvent>[],
@@ -222,7 +230,7 @@ export class OrderCreatedGateway implements IEventHandler<OrderCreatedEvent> {
 
     for (const result of results) {
       if (result.status === 'rejected') {
-        console.error(`[OrderCreatedGateway] Strategy failed:`, result.reason);
+        this.logger.error(`[OrderCreatedGateway] Strategy failed:`, result.reason);
       }
     }
   }

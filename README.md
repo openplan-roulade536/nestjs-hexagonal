@@ -62,6 +62,7 @@ Each agent loads its corresponding skill and specializes in one concern.
 | `infrastructure-agent` | Sonnet 4.6 | Prisma repos, module wiring, adapters |
 | `presentation-agent` | Sonnet 4.6 | Controllers, request DTOs, Swagger |
 | `broadcasting-agent` | Sonnet 4.6 | WS gateway (backend) + event consumption (Next.js/React frontend) |
+| `listener-agent` | Sonnet 4.6 | Creates event listeners (same-BC projections, cross-BC reactions, bridge) |
 | `architecture-reviewer` | **Opus 4.6** | Over-engineering detection + code smell identification |
 | `event-debug-agent` | **Opus 4.6** | Debug full event chain: entity -> dispatch -> WS -> frontend |
 
@@ -138,7 +139,7 @@ The `shared/` directory contains `.ts.example` reference implementations for pro
 - **No over-engineering** — 3 lines of code beats a premature abstraction
 - **Test-friendly** — data builders, in-memory repos, real integration tests
 - **Framework-agnostic domain/application** — exportable to other frameworks
-- **Microsservice-friendly** — event-driven patterns enable future extraction
+- **Microservice-friendly** — event-driven patterns enable future extraction
 
 ## GSD Compatibility
 

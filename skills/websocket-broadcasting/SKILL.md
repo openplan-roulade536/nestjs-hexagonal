@@ -51,6 +51,8 @@ For each domain event that needs to reach the frontend, create an `@EventsHandle
 ```typescript
 @EventsHandler(OrderCreatedEvent)
 export class OrderCreatedBroadcastHandler implements IEventHandler<OrderCreatedEvent> {
+  private readonly logger = new Logger(OrderCreatedBroadcastHandler.name);
+
   constructor(
     @Inject(WS_GATEWAY_TOKEN) private readonly gateway: WsGatewayPort,
     @Inject(ORDER_REPOSITORY) private readonly repo: OrderRepository.Repository,
@@ -69,7 +71,7 @@ export class OrderCreatedBroadcastHandler implements IEventHandler<OrderCreatedE
       });
     } catch (error) {
       // Log but never re-throw — don't break the event chain
-      console.error(`Failed to broadcast order:created`, error);
+      this.logger.error(`Failed to broadcast order:created`, error);
     }
   }
 }

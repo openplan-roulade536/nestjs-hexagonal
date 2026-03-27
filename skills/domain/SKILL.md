@@ -40,6 +40,9 @@ Domain artifact needed?
 ├── Logic that belongs to the domain but not to one entity
 │   └── Go to: Domain Services
 │
+├── A domain-specific error with context
+│   └── Go to: Domain Errors
+│
 ├── Entity invariant enforcement (field-level rules)
 │   └── Go to: Validators
 │
@@ -157,6 +160,7 @@ export class EmailVO extends ValueObject<string> {
 ```typescript
 // domain/value-objects/address.vo.ts
 import { ValueObject } from '@/shared/base-classes/value-object';
+import { InvalidArgumentError } from '@/shared/domain/errors';
 
 interface AddressProps { street: string; city: string; country: string; }
 
@@ -431,6 +435,41 @@ export function <Name>DataBuilder(overrides?: Partial<<Name>Props>): <Name>Props
 ```
 
 See `references/data-builder-patterns.md` for: composed builders, state-specific variants (Active, Pending, Rejected), and how to wire builders into test `describe` blocks.
+
+---
+
+## Domain Errors
+
+Specialized errors that extend the shared error hierarchy (`DomainError`, `NotFoundError`, `ConflictError`, etc.) with domain-specific context.
+
+Live in `<bc>/domain/errors/`. Name convention: `<Entity><Condition>Error`.
+
+```typescript
+// domain/errors/order-not-found.error.ts
+import { NotFoundError } from '@/shared/domain/errors';
+
+export class OrderNotFoundError extends NotFoundError {
+  constructor(public readonly orderId: string) {
+    super(`Order ${orderId} not found`);
+  }
+}
+
+// domain/errors/invalid-order-status-transition.error.ts
+import { DomainError } from '@/shared/domain/errors';
+
+export class InvalidOrderStatusTransitionError extends DomainError {
+  constructor(
+    public readonly currentStatus: string,
+    public readonly targetStatus: string,
+  ) {
+    super(`Cannot transition from ${currentStatus} to ${targetStatus}`);
+  }
+}
+```
+
+**When to specialize:** When the error carries domain context (IDs, amounts, statuses) that helps debugging. Don't specialize if the generic message is sufficient.
+
+See `references/domain-error-patterns.md` for: full error catalog, naming conventions, error filter mapping, testing patterns.
 
 ---
 

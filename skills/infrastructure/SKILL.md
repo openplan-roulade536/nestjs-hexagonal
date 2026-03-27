@@ -321,6 +321,7 @@ See full template: `references/event-infra-patterns.md`
 - `class-validator` is ONLY allowed in presentation request DTOs.
 - Event handlers use `@EventsHandler` + `IEventHandler` — never `@OnEvent` for new code.
 - `organizationId` in every Prisma query (multi-tenant isolation).
+  **Exception:** `findById(id)` may omit `organizationId` when used internally after authorization has been verified at the controller/guard level. For user-facing queries, prefer `findById(id, organizationId)`.
 - Use `Entity.restore()` in mappers — never `Entity.create()`.
 
 ## Checklist

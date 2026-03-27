@@ -321,19 +321,14 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 
 import { WS_GATEWAY_TOKEN } from '@/shared/ports/ws-gateway.port';
 import { AppGateway } from './gateways/app.gateway';
-import { WebSocketRelayListener } from './listeners/websocket-relay.listener';
-import { WsBroadcastRelayListener } from './listeners/ws-broadcast-relay.listener';
 
 @Module({
   imports: [
     JwtModule.register({ secret: process.env.JWT_SECRET }),
-    EventEmitterModule.forRoot(), // if using Pattern 3
   ],
   providers: [
     AppGateway,
     { provide: WS_GATEWAY_TOKEN, useExisting: AppGateway },
-    WebSocketRelayListener,     // Pattern 2 — generic relay
-    WsBroadcastRelayListener,   // Pattern 3 — fire-and-forget
   ],
   exports: [WS_GATEWAY_TOKEN],
 })
