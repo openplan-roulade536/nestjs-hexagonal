@@ -23,7 +23,11 @@ This plugin provides layer-specific skills, specialized agents, and workflow orc
 ### From GitHub
 
 ```bash
-claude /plugin install github.com/softtor/nestjs-hexagonal
+# 1. Add the marketplace (one time)
+/plugin marketplace add softtor/nestjs-hexagonal
+
+# 2. Install the plugin
+/plugin install nestjs-hexagonal
 ```
 
 ### Local development
